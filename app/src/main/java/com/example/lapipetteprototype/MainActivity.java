@@ -1,18 +1,14 @@
 package com.example.lapipetteprototype;
 
 import androidx.appcompat.app.AppCompatActivity;
-
-import android.app.DownloadManager;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.view.View;
 import android.widget.Button;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
 
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
@@ -20,10 +16,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        setNumberOfCards();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        numberOfCards = getNumberOfCards();
         System.out.println("I got the number: " + numberOfCards);
         // TODO if -1 ... -> No connection
 
@@ -43,35 +39,38 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     /**
-     * Functions downloads the index.txt file from repository and extracts the first line
-     * -> returning the total number of available info cards
+     * Creates a parallel thread to open a StringStream to the index.txt file
+     * -> returning the total number of available info cards (first line in text-file)
      * @return String number of totally available cards
      */
-    private String getNumberOfCards() { // TODO display warning if no Internet-Connection
-        // --- loading index ----
-        Uri indexUri = Uri.parse("https://raw.githubusercontent.com/KuechlerO/LaPipette-VaccineCards/main/index.txt");
-        DownloadManager.Request r = new DownloadManager.Request(indexUri);
+    private void setNumberOfCards() { // TODO display warning if no Internet-Connection
+        Thread thread = new Thread(new Runnable() {
 
-        // This put the download in the same Download dir the browser uses
-        r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "index");
-        //r.setDestinationInExternalPublicDir(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "upload");
-        r.allowScanningByMediaScanner();
-
-
-        // Start download
-        DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-        dm.enqueue(r);
-
-        String numberOfCards = "-1";
-        try{
-            BufferedReader reader = new BufferedReader(new FileReader(new File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "index")));
-            numberOfCards = reader.readLine();
-            reader.close();
-        } catch (Exception e) {
-            System.out.println("An error occurred.");
-            e.printStackTrace();
-        }
-        return numberOfCards;
+            @Override
+            public void run() {
+                try  {
+                    InputStream input = new URL("https://raw.githubusercontent.com/KuechlerO/LaPipette-VaccineCards/main/index.txt").openStream();
+                    InputStreamReader reader = new InputStreamReader(input);
+                    numberOfCards = "";
+                    int data = reader.read();
+                    while(data != -1){
+                        char currentChar = (char) data;
+                        if (currentChar != '\n' && currentChar != '\r') {
+                            numberOfCards = numberOfCards + currentChar;
+                        }
+                        else {
+                            break;
+                        }
+                        data = reader.read();
+                    }
+                    reader.close();
+                    System.out.println("Yes, finished: " + numberOfCards);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    numberOfCards = "-1";
+                }
+            }
+        });
+        thread.start();
     }
 }
